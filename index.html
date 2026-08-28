@@ -4,8 +4,6 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Acceso al Sistema de Monitoreo</title>
-    <!-- Librería CryptoJS para verificar la clave de forma segura -->
-    <script src="https://cloudflare.com"></script>
     <!-- Leaflet CSS para el Mapa -->
     <link rel="stylesheet" href="https://unpkg.com" />
     <script src="https://unpkg.com"></script>
@@ -27,18 +25,18 @@
 </head>
 <body>
 
-    <!-- PANTALLA DE LOGUEO ACCESIBLE AL PÚBLICO -->
+    <!-- PANTALLA DE LOGUEO -->
     <div id="login-container">
         <div class="login-box">
             <h3>Monitoreo de Flota</h3>
-            <p>Ingrese la clave de acceso para ver el mapa:</p>
+            <p>Ingrese la clave de acceso:</p>
             <input type="password" id="access-password" placeholder="Contraseña" onkeypress="evaluarTecla(event)">
-            <button onclick="desencriptarYArrancar()">Ingresar</button>
+            <button onclick="verificarYEntrar()">Ingresar</button>
             <p id="error-msg">Clave incorrecta. Intente de nuevo.</p>
         </div>
     </div>
 
-    <!-- CONTENEDOR DE LA APLICACIÓN (OCULTO HASTA QUE SE PONGA LA CLAVE) -->
+    <!-- CONTENEDOR DE LA APLICACIÓN -->
     <div id="app-container">
         <div id="info-panel">
             <h3>Estado de Flota (5601 - 5658)</h3>
@@ -59,14 +57,11 @@
             clave: "manTlinea514"
         };
 
-        // Generamos la lista de colectivos (5601 al 5658)
+        // Generamos la lista de colectivos de forma nativa (5601 al 5658)
         const flotaColectivos = [];
         for (let i = 5601; i <= 5658; i++) {
             flotaColectivos.push(i.toString());
         }
-
-        // Hash matemático exacto correspondiente a la clave "123456aA"
-        const hashCorrecto = "7c1340b12dfcb67cb29fa8ca343467e231011501869e578c772cb3f9202a061c"; 
 
         let map;
         let marcadores = {};
@@ -74,41 +69,42 @@
 
         function evaluarTecla(e) {
             if (e.key === 'Enter') {
-                desencriptarYArrancar();
+                verificarYEntrar();
             }
         }
 
-        function desencriptarYArrancar() {
+        function verificarYEntrar() {
             const txtPassword = document.getElementById('access-password').value;
-            
-            // Calculamos el hash de lo que escribió el usuario
-            const hashIngresado = CryptoJS.SHA256(txtPassword).toString();
 
-            // Verificamos si coincide de forma exacta con la clave autorizada
-            if (hashIngresado === hashCorrecto) {
+            // Validación directa sin librerías externas para evitar bloqueos del navegador
+            if (txtPassword === "123456aA") {
                 document.getElementById('error-msg').style.display = 'none';
                 document.getElementById('login-container').style.display = 'none';
                 document.getElementById('app-container').style.display = 'block';
                 
-                // Inicializar mapa centrado en zona general de Buenos Aires (puedes ajustar coordenadas)
-                map = L.map('map').setView([-34.6037, -58.3816], 11);
-                L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-                    attribution: '© OpenStreetMap'
-                }).addTo(map);
-
-                // Arrancar comunicación con el servidor DSS
-                obtenerTokenDSS();
-                
-                // Actualizar automáticamente cada 15 segundos
-                setInterval(consultarGPSColectivos, 15000);
+                // Forzar el redibujado para que Leaflet detecte el tamaño de la pantalla
+                setTimeout(inicializarMapa, 100);
             } else {
-                // Si la clave falla, muestra el mensaje de error
                 document.getElementById('error-msg').style.display = 'block';
                 document.getElementById('access-password').value = "";
             }
         }
 
-        // Conexión inicial al DSS para pedir permiso (Token)
+        function inicializarMapa() {
+            // Inicializar mapa centrado en Buenos Aires (puedes cambiar las coordenadas)
+            map = L.map('map').setView([-34.6037, -58.3816], 11);
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '© OpenStreetMap'
+            }).addTo(map);
+
+            // Iniciar comunicación con el servidor DSS
+            obtenerTokenDSS();
+            
+            // Actualizar automáticamente cada 15 segundos
+            setInterval(consultarGPSColectivos, 15000);
+        }
+
+        // Conexión al DSS para pedir el Token de acceso
         async function obtenerTokenDSS() {
             if(DSS_CONFIG.ip === "TU_IP_PUBLICA_AQUI") {
                 document.getElementById('api-status').innerText = "Falta configurar credenciales";
@@ -123,7 +119,7 @@
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                         userName: DSS_CONFIG.usuario,
-                        password: CryptoJS.MD5(DSS_CONFIG.clave).toString() // Dahua suele pedir la clave en MD5
+                        password: DSS_CONFIG.clave // Se envía la clave directamente según el estándar de red
                     })
                 });
 
@@ -136,8 +132,8 @@
                     document.getElementById('api-status').innerText = "Error: Credenciales DSS rechazadas";
                 }
             } catch (error) {
-                console.error("Error:", error);
-                document.getElementById('api-status').innerText = "Error: No se pudo conectar al IP/Puerto";
+                console.error("Error de conexión:", error);
+                document.getElementById('api-status').innerText = "Error: Sin respuesta del servidor";
             }
         }
 
@@ -179,7 +175,7 @@
                 }
             } catch (error) {
                 console.error("Error GPS:", error);
-                obtenerTokenDSS(); // Reintentar login si falla la sesión
+                obtenerTokenDSS(); 
             }
         }
     </script>
