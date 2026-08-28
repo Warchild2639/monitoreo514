@@ -3,735 +3,180 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-
-    <title>Actualizacion de Tarifas</title>
-
+    <title>Acceso al Sistema de Monitoreo</title>
+    <!-- Librería de encriptación CryptoJS (Segura y ligera) -->
+    <script src="https://cloudflare.com"></script>
+    <!-- Leaflet CSS para el Mapa -->
+    <link rel="stylesheet" href="https://unpkg.com" />
+    <script src="https://unpkg.com"></script>
+    
     <style>
-        * {
-            box-sizing: border-box;
-            font-family: sans-serif;
-            margin: 0;
-            padding: 0;
-        }
-
-        body {
-            background: #f0f2f5;
-            padding: 15px;
-            text-align: center;
-            -webkit-user-select: none;
-            user-select: none;
-        }
-
-        h1 {
-            margin-bottom: 15px;
-            font-size: 1.5rem;
-            color: #333;
-        }
-
-        /* MENÚ DE LÍNEAS */
-
-        .menu-lineas {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(80px, 1fr));
-            gap: 10px;
-            margin-bottom: 20px;
-        }
-
-        .btn-linea {
-            background: #007bff;
-            color: white;
-            border: none;
-            padding: 12px;
-            font-size: 1rem;
-            font-weight: bold;
-            border-radius: 8px;
-            cursor: pointer;
-        }
-
-        .btn-linea.activo {
-            background: #0056b3;
-            box-shadow: inset 0 0 5px rgba(0,0,0,0.5);
-        }
-
-        /* GRILLA DE INTERNOS */
-
-        .contenedor-internos {
-            display: grid;
-            grid-template-columns: repeat(4, 1fr);
-            gap: 10px;
-            margin-top: 15px;
-        }
-
-        .interno {
-            background: white;
-            border: 2px solid #ccc;
-            border-radius: 8px;
-            padding: 15px 5px;
-            font-size: 1.1rem;
-            font-weight: bold;
-            position: relative;
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            min-height: 70px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
-        }
-
-        /* INTERNO MARCADO */
-
-        .interno.descargado {
-            background: #28a745 !important;
-            color: white;
-            border-color: #1e7e34;
-        }
-
-        .nota-indicador {
-            font-size: 0.65rem;
-            color: #666;
-            font-weight: normal;
-            margin-top: 4px;
-            max-width: 100%;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            white-space: nowrap;
-        }
-
-        .interno.descargado .nota-indicador {
-            color: #e2fcd4;
-        }
-
-        .mensaje-estado {
-            color: #666;
-            font-style: italic;
-            margin-top: 20px;
-            grid-column: span 4;
-        }
+        body { margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #f4f6f9; }
+        #login-container { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; }
+        .login-box { background: white; padding: 30px; border-radius: 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); text-align: center; width: 300px; }
+        input[type="password"] { width: 90%; padding: 10px; margin: 15px 0; border: 1px solid #ccc; border-radius: 4px; font-size: 16px; }
+        button { background: #007bff; color: white; border: none; padding: 10px 20px; border-radius: 4px; cursor: pointer; font-size: 16px; width: 96%; }
+        button:hover { background: #0056b3; }
+        #error-msg { color: red; font-size: 14px; margin-top: 10px; display: none; }
+        #app-container { display: none; height: 100vh; width: 100vw; position: relative; }
+        #map { height: 100%; width: 100%; }
+        #info-panel { position: absolute; top: 20px; left: 50px; background: rgba(255,255,255,0.95); z-index: 1000; padding: 15px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.2); max-width: 250px; }
+        h3 { margin: 0 0 10px 0; font-size: 16px; color: #333; }
+        p { margin: 5px 0; font-size: 13px; color: #666; }
     </style>
 </head>
-
 <body>
 
-    <h1 id="titulo-vista">
-        Seleccione una Línea
-    </h1>
-
-    <!-- MENÚ DE LÍNEAS -->
-
-    <div class="menu-lineas">
-
-        <button class="btn-linea"
-                onclick="cargarLinea('271', this)">
-            271
-        </button>
-
-        <button class="btn-linea"
-                onclick="cargarLinea('373', this)">
-            373
-        </button>
-
-        <button class="btn-linea"
-                onclick="cargarLinea('384', this)">
-            384
-        </button>
-
-        <button class="btn-linea"
-                onclick="cargarLinea('177', this)">
-            177
-        </button>
-
-        <button class="btn-linea"
-                onclick="cargarLinea('263', this)">
-            263
-        </button>
-
-        <button class="btn-linea"
-                onclick="cargarLinea('79', this)">
-            79
-        </button>
-
-        <button class="btn-linea"
-                onclick="cargarLinea('514', this)">
-            514
-        </button>
-
-        <button class="btn-linea"
-                onclick="cargarLinea('varela', this)">
-            Varela
-        </button>
-
-    </div>
-
-
-    <!-- PANEL DE INTERNOS -->
-
-    <div
-        class="contenedor-internos"
-        id="panel-internos"
-    >
-        <div class="mensaje-estado">
-            Ninguna línea seleccionada
+    <!-- PANTALLA DE LOGUEO ACCESIBLE AL PÚBLICO -->
+    <div id="login-container">
+        <div class="login-box">
+            <h3>Monitoreo de Flota</h3>
+            <p>Ingrese la clave de acceso para desencriptar el mapa:</p>
+            <input type="password" id="access-password" placeholder="Contraseña">
+            <button onclick="desencriptarYArrancar()">Ingresar</button>
+            <p id="error-msg">Clave incorrecta. Intente de nuevo.</p>
         </div>
     </div>
 
-
-    <!-- ================================================= -->
-    <!-- FIREBASE -->
-    <!-- ================================================= -->
-
-    <script src="https://www.gstatic.com/firebasejs/11.10.0/firebase-app-compat.js"></script>
-
-    <script src="https://www.gstatic.com/firebasejs/11.10.0/firebase-database-compat.js"></script>
-
+    <!-- CONTENEDOR DE LA APLICACIÓN (OCULTO HASTA QUE SE DESENCRIPTE) -->
+    <div id="app-container">
+        <div id="info-panel">
+            <h3>Estado de Flota (5601 - 5658)</h3>
+            <p id="api-status">Conectando a DSS...</p>
+            <p id="last-update">Último reporte: --:--:--</p>
+        </div>
+        <div id="map"></div>
+    </div>
 
     <script>
-
-        /* =================================================
-           CONFIGURACIÓN FIREBASE
-        ================================================= */
-
-        const firebaseConfig = {
-
-            apiKey: "AIzaSyBdYu1yjsshw0lXXQ9PRlN-hPEHB6tjNF4",
-
-            authDomain:
-                "tarifas-compartidas.firebaseapp.com",
-
-            databaseURL:
-                "https://tarifas-compartidas-default-rtdb.firebaseio.com",
-
-            projectId:
-                "tarifas-compartidas",
-
-            storageBucket:
-                "tarifas-compartidas.firebasestorage.app",
-
-            messagingSenderId:
-                "943166246045",
-
-            appId:
-                "1:943166246045:web:f0df71d42acf52ebf15874",
-
-            measurementId:
-                "G-TXK4ZW38ZK"
+        // CONFIGURACIÓN INTERNA (Rellena estos campos entre las comillas correspondientes)
+        const DSS_CONFIG = {
+            ip: "TU_IP_PUBLICA_AQUI",
+            puerto: "TU_PUERTO_AQUI",
+            usuario: "TU_USUARIO_AQUI",
+            clave: "TU_CLAVE_AQUI"
         };
 
+        // Generamos el rango de colectivos solicitado de forma dinámica (5601 al 5658)
+        const flotaColectivos = [];
+        for (let i = 5601; i <= 5658; i++) {
+            flotaColectivos.push(i.toString());
+        }
 
-        /* INICIAR FIREBASE */
+        // HASH DE VALIDACIÓN: Generado a partir de "123456aA" para validar sin guardar la clave en texto plano
+        const hashCorrecto = "7c1340b12dfcb67cb29fa8ca343467e231011501869e578c772cb3f9202a061c"; 
 
-        firebase.initializeApp(firebaseConfig);
+        let map;
+        let marcadores = {};
+        let dssToken = "";
 
+        function verificarClave(password) {
+            const hashIngresado = CryptoJS.SHA256(password).toString();
+            return hashIngresado === hashCorrecto;
+        }
 
-        /* CONECTAR A REALTIME DATABASE */
+        function desencriptarYArrancar() {
+            const pass = document.getElementById('access-password').value;
 
-        const database =
-            firebase.database();
+            if (verificarClave(pass)) {
+                // Ocultar login y mostrar mapa
+                document.getElementById('login-container').style.display = 'none';
+                document.getElementById('app-container').style.display = 'block';
+                
+                // Inicializar mapa (Centrado por defecto en Buenos Aires, puedes cambiar coordenadas)
+                map = L.map('map').setView([-34.6037, -58.3816], 11);
+                L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                    attribution: '© OpenStreetMap'
+                }).addTo(map);
 
-
-        /* REFERENCIA AL LISTENER ACTUAL */
-
-        let referenciaEstados = null;
-
-
-
-        /* =================================================
-           CARGAR UNA LÍNEA
-        ================================================= */
-
-        function cargarLinea(linea, botonElemento) {
-
-            document.getElementById(
-                'titulo-vista'
-            ).innerText =
-                `Cargando Línea ${linea.toUpperCase()}...`;
-
-
-            /* MARCAR BOTÓN ACTIVO */
-
-            document
-                .querySelectorAll('.btn-linea')
-                .forEach(btn => {
-
-                    btn.classList.remove('activo');
-
-                });
-
-
-            botonElemento.classList.add('activo');
-
-
-            const contenedor =
-                document.getElementById(
-                    'panel-internos'
-                );
-
-
-            contenedor.innerHTML =
-
-                `<div class="mensaje-estado">
-                    Buscando archivo lineas/${linea}.txt...
-                 </div>`;
-
-
-            /* -----------------------------------------
-               DESACTIVAR LISTENER ANTERIOR
-            ----------------------------------------- */
-
-            if (referenciaEstados) {
-
-                referenciaEstados.off();
-
-                referenciaEstados = null;
-
+                // Iniciar flujo de datos con el DSS
+                obtenerTokenDSS();
+                // Consultar cada 15 segundos
+                setInterval(consultarGPSColectivos, 15000);
+            } else {
+                document.getElementById('error-msg').style.display = 'block';
             }
-
-
-            /* -----------------------------------------
-               CARGAR ARCHIVO DE INTERNOS
-            ----------------------------------------- */
-
-            fetch(`lineas/${linea}.txt`)
-
-                .then(response => {
-
-                    if (!response.ok) {
-
-                        throw new Error(
-                            `No se encontró el archivo de la línea ${linea}`
-                        );
-
-                    }
-
-                    return response.text();
-
-                })
-
-
-                .then(texto => {
-
-                    document.getElementById(
-                        'titulo-vista'
-                    ).innerText =
-                        `Línea ${linea.toUpperCase()}`;
-
-
-                    contenedor.innerHTML = "";
-
-
-                    /* SEPARAR INTERNOS */
-
-                    const internos = texto
-                        .split('\n')
-                        .map(valor => valor.trim())
-                        .filter(valor => valor.length > 0);
-
-
-                    if (internos.length === 0) {
-
-                        contenedor.innerHTML =
-
-                            `<div class="mensaje-estado">
-                                El archivo de la línea
-                                ${linea}
-                                está vacío.
-                             </div>`;
-
-                        return;
-
-                    }
-
-
-                    /* -----------------------------------------
-                       CREAR LOS BOTONES
-                    ----------------------------------------- */
-
-                    internos.forEach(num => {
-
-                        const div =
-                            document.createElement('div');
-
-
-                        div.className =
-                            'interno';
-
-
-                        div.setAttribute(
-                            'data-interno',
-                            num
-                        );
-
-
-                        div.innerHTML =
-
-                            `<span>${num}</span>
-                             <div class="nota-indicador"></div>`;
-
-
-                        configurarEventosToque(
-                            div,
-                            linea,
-                            num
-                        );
-
-
-                        contenedor.appendChild(div);
-
-                    });
-
-
-
-                    /* -----------------------------------------
-                       CONECTAR CON FIREBASE
-                    ----------------------------------------- */
-
-                    referenciaEstados =
-                        database.ref(
-                            `estados/${linea}`
-                        );
-
-
-                    /*
-                     * ESTE LISTENER ES LO IMPORTANTE.
-                     *
-                     * Cada vez que cambia algo en Firebase,
-                     * todos los celulares reciben el cambio.
-                     */
-
-                    referenciaEstados.on(
-                        'value',
-
-                        snapshot => {
-
-                            const estados =
-                                snapshot.val() || {};
-
-
-                            internos.forEach(num => {
-
-                                const elementos =
-                                    contenedor
-                                    .querySelectorAll(
-                                        '.interno'
-                                    );
-
-
-                                let elemento = null;
-
-
-                                elementos.forEach(el => {
-
-                                    if (
-                                        el.getAttribute(
-                                            'data-interno'
-                                        ) === num
-                                    ) {
-
-                                        elemento = el;
-
-                                    }
-
-                                });
-
-
-                                if (!elemento) {
-                                    return;
-                                }
-
-
-                                const estado =
-                                    estados[num] || {
-
-                                        descargado:
-                                            false,
-
-                                        nota:
-                                            ""
-
-                                    };
-
-
-                                /* VERDE / BLANCO */
-
-                                elemento.classList.toggle(
-                                    'descargado',
-                                    !!estado.descargado
-                                );
-
-
-                                /* NOTA */
-
-                                elemento
-                                    .querySelector(
-                                        '.nota-indicador'
-                                    )
-                                    .textContent =
-                                        estado.nota || "";
-
-                            });
-
-                        },
-
-                        error => {
-
-                            console.error(
-                                "Error leyendo Firebase:",
-                                error
-                            );
-
-
-                            contenedor.innerHTML =
-
-                                `<div
-                                    class="mensaje-estado"
-                                    style="color:red;"
-                                >
-                                    ⚠️ No se pudo conectar
-                                    con Firebase.
-                                    <br><br>
-                                    Revisá las reglas
-                                    de Realtime Database.
-                                 </div>`;
-
-                        }
-                    );
-
-                })
-
-
-                .catch(error => {
-
-                    document.getElementById(
-                        'titulo-vista'
-                    ).innerText =
-                        "Error";
-
-
-                    contenedor.innerHTML =
-
-                        `<div
-                            class="mensaje-estado"
-                            style="color:red;"
-                        >
-                            ⚠️ Error al cargar el archivo
-                            de la línea ${linea}.
-                            <br><br>
-                            Asegurate de que exista
-                            en la carpeta "lineas".
-                         </div>`;
-
-
-                    console.error(error);
-
+        }
+
+        // Función para autenticarse contra la API del DSS de Dahua
+        async function obtenerTokenDSS() {
+            try {
+                const url = `http://${DSS_CONFIG.ip}:${DSS_CONFIG.puerto}/artemis/api/v1/auth/login`; // Endpoint estándar DSS
+                
+                // Nota: Dependiendo de tu versión de DSS, Dahua requiere firmar las peticiones o usar HTTPS/MD5. 
+                // Esta es una estructura base de login HTTP.
+                const response = await fetch(url, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        userName: DSS_CONFIG.usuario,
+                        password: CryptoJS.MD5(DSS_CONFIG.clave).toString() // DSS suele pedir clave en MD5
+                    })
                 });
 
+                const data = await response.json();
+                if(data && data.data && data.data.token) {
+                    dssToken = data.data.token;
+                    document.getElementById('api-status').innerText = "Conectado a DSS";
+                    consultarGPSColectivos();
+                }
+            } catch (error) {
+                console.error("Error de autenticación DSS:", error);
+                document.getElementById('api-status').innerText = "Error de Conexión IP/Puerto";
+            }
         }
 
+        // Función para consultar las coordenadas de la flota
+        async function consultarGPSColectivos() {
+            if (!dssToken) return;
 
+            try {
+                // Endpoint para obtener estados de GPS en DSS Pro/Express
+                const url = `http://${DSS_CONFIG.ip}:${DSS_CONFIG.puerto}/artemis/api/pms/v1/gps/states`;
+                
+                const response = await fetch(url, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${dssToken}`
+                    },
+                    body: JSON.stringify({
+                        // Enviamos la lista de internos que creamos (5601 al 5658)
+                        deviceCodes: flotaColectivos 
+                    })
+                });
 
-        /* =================================================
-           TOQUE PROLONGADO
-        ================================================= */
-
-        function configurarEventosToque(
-            elemento,
-            linea,
-            interno
-        ) {
-
-            let tiempoPresionado;
-
-
-            /* -----------------------------------------
-               COMIENZA EL TOQUE
-            ----------------------------------------- */
-
-            elemento.addEventListener(
-                'touchstart',
-
-                () => {
-
-                    tiempoPresionado =
-                        setTimeout(
-
-                            () => {
-
-                                alternarDescarga(
-                                    linea,
-                                    interno
-                                );
-
-                            },
-
-                            600
-                        );
-
-                },
-
-                {
-                    passive: true
+                const resData = await response.json();
+                
+                if (resData && resData.data) {
+                    const ahora = new Date();
+                    document.getElementById('last-update').innerText = `Último reporte: ${ahora.toLocaleTimeString()}`;
+                    
+                    // Procesar las coordenadas devueltas por el DSS
+                    resData.data.forEach(gpsData => {
+                        const { deviceCode, latitude, longitude, speed } = gpsData;
+                        
+                        // Validar que el interno esté en nuestro rango y tenga coordenadas válidas
+                        if (flotaColectivos.includes(deviceCode) && latitude && longitude) {
+                            
+                            if (marcadores[deviceCode]) {
+                                // Actualizar posición si ya existe en el mapa
+                                marcadores[deviceCode].setLatLng([latitude, longitude]);
+                                marcadores[deviceCode].setPopupContent(`<b>Colectivo: ${deviceCode}</b><br>Velocidad: ${speed} km/h`);
+                            } else {
+                                // Crear nuevo marcador si aparece por primera vez
+                                marcadores[deviceCode] = L.marker([latitude, longitude]).addTo(map)
+                                    .bindPopup(`<b>Colectivo: ${deviceCode}</b><br>Velocidad: ${speed} km/h`);
+                            }
+                        }
+                    });
                 }
-            );
-
-
-            /* -----------------------------------------
-               MOVIMIENTO
-            ----------------------------------------- */
-
-            elemento.addEventListener(
-                'touchmove',
-
-                () => {
-
-                    clearTimeout(
-                        tiempoPresionado
-                    );
-
-                },
-
-                {
-                    passive: true
-                }
-            );
-
-
-            /* -----------------------------------------
-               SOLTAR
-            ----------------------------------------- */
-
-            elemento.addEventListener(
-                'touchend',
-
-                () => {
-
-                    clearTimeout(
-                        tiempoPresionado
-                    );
-
-                },
-
-                {
-                    passive: true
-                }
-            );
-
-
-            /* -----------------------------------------
-               CANCELAR
-            ----------------------------------------- */
-
-            elemento.addEventListener(
-                'touchcancel',
-
-                () => {
-
-                    clearTimeout(
-                        tiempoPresionado
-                    );
-
-                },
-
-                {
-                    passive: true
-                }
-            );
-
-
-            /* EVITAR CLICK */
-
-            elemento.addEventListener(
-                'click',
-
-                e => {
-
-                    e.preventDefault();
-
-                }
-
-            );
-
+            } catch (error) {
+                console.error("Error al obtener GPS:", error);
+                // Si el token expira, intentamos loguear de nuevo
+                obtenerTokenDSS();
+            }
         }
-
-
-
-        /* =================================================
-           MARCAR / DESMARCAR INTERNO
-        ================================================= */
-
-        function alternarDescarga(
-            linea,
-            interno
-        ) {
-
-            const referencia =
-
-                database.ref(
-                    `estados/${linea}/${interno}`
-                );
-
-
-            /*
-             * TRANSACTION evita problemas si dos
-             * celulares modifican el mismo interno.
-             */
-
-            referencia.transaction(
-
-                estadoActual => {
-
-                    const estado =
-                        estadoActual || {
-
-                            descargado:
-                                false,
-
-                            nota:
-                                ""
-
-                        };
-
-
-                    return {
-
-                        descargado:
-                            !estado.descargado,
-
-                        nota:
-                            estado.nota || ""
-
-                    };
-
-                }
-
-            )
-
-
-            .then(() => {
-
-                console.log(
-                    `Interno ${interno} actualizado`
-                );
-
-            })
-
-
-            .catch(error => {
-
-                console.error(
-                    "Error guardando en Firebase:",
-                    error
-                );
-
-
-                alert(
-                    "No se pudo guardar el cambio.\n\n" +
-                    "Revisá la conexión con Firebase."
-                );
-
-            });
-
-        }
-
     </script>
-
 </body>
 </html>
