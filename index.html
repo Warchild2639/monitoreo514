@@ -4,6 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Monitoreo de Conexión - Flota</title>
+    <!-- Librería criptográfica para codificar la clave según exige Dahua DSS -->
+    <script src="https://cloudflare.com"></script>
     <style>
         body { margin: 0; padding: 20px; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #f4f6f9; color: #333; }
         #login-container { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 80vh; }
@@ -64,9 +66,7 @@
             clave: "manTlinea514"
         };
 
-        // Proxy público gratuito para evadir el bloqueo de seguridad (CORS) del navegador
         const PROXY_CORS = "https://corsproxy.io?";
-
         const MIN_BUS = 5601;
         const MAX_BUS = 5658;
         const flotaColectivos = [];
@@ -115,16 +115,18 @@
                 return;
             }
             try {
-                // Enrutamos la petición original a través del proxy CORS seguro
                 const urlOriginal = `http://${DSS_CONFIG.ip}:${DSS_CONFIG.puerto}/artemis/api/v1/auth/login`;
                 const urlConProxy = PROXY_CORS + encodeURIComponent(urlOriginal);
+
+                // Dahua exige recibir el password codificado estrictamente en formato MD5 hash
+                const passwordEncriptado = CryptoJS.MD5(DSS_CONFIG.clave).toString();
 
                 const response = await fetch(urlConProxy, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                         userName: DSS_CONFIG.usuario,
-                        password: DSS_CONFIG.clave
+                        password: passwordEncriptado
                     })
                 });
                 const data = await response.json();
