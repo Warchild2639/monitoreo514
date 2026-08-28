@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Acceso al Sistema de Monitoreo</title>
-    <!-- Librería de encriptación CryptoJS (Segura y ligera) -->
+    <!-- Librería CryptoJS para verificar la clave de forma segura -->
     <script src="https://cloudflare.com"></script>
     <!-- Leaflet CSS para el Mapa -->
     <link rel="stylesheet" href="https://unpkg.com" />
@@ -31,14 +31,14 @@
     <div id="login-container">
         <div class="login-box">
             <h3>Monitoreo de Flota</h3>
-            <p>Ingrese la clave de acceso para desencriptar el mapa:</p>
-            <input type="password" id="access-password" placeholder="Contraseña">
+            <p>Ingrese la clave de acceso para ver el mapa:</p>
+            <input type="password" id="access-password" placeholder="Contraseña" onkeypress="evaluarTecla(event)">
             <button onclick="desencriptarYArrancar()">Ingresar</button>
             <p id="error-msg">Clave incorrecta. Intente de nuevo.</p>
         </div>
     </div>
 
-    <!-- CONTENEDOR DE LA APLICACIÓN (OCULTO HASTA QUE SE DESENCRIPTE) -->
+    <!-- CONTENEDOR DE LA APLICACIÓN (OCULTO HASTA QUE SE PONGA LA CLAVE) -->
     <div id="app-container">
         <div id="info-panel">
             <h3>Estado de Flota (5601 - 5658)</h3>
@@ -49,89 +49,103 @@
     </div>
 
     <script>
-        // CONFIGURACIÓN INTERNA (Rellena estos campos entre las comillas correspondientes)
+        // ==========================================
+        // CONFIGURACIÓN INTERNA (Rellena estos campos)
+        // ==========================================
         const DSS_CONFIG = {
-            ip: "TU_IP_PUBLICA_AQUI",
-            puerto: "TU_PUERTO_AQUI",
-            usuario: "TU_USUARIO_AQUI",
-            clave: "TU_CLAVE_AQUI"
+            ip: "ctp.brown.gob.ar",
+            puerto: "9000",
+            usuario: "tecnicos514",
+            clave: "manTlinea514"
         };
 
-        // Generamos el rango de colectivos solicitado de forma dinámica (5601 al 5658)
+        // Generamos la lista de colectivos (5601 al 5658)
         const flotaColectivos = [];
         for (let i = 5601; i <= 5658; i++) {
             flotaColectivos.push(i.toString());
         }
 
-        // HASH DE VALIDACIÓN: Generado a partir de "123456aA" para validar sin guardar la clave en texto plano
+        // Hash matemático exacto correspondiente a la clave "123456aA"
         const hashCorrecto = "7c1340b12dfcb67cb29fa8ca343467e231011501869e578c772cb3f9202a061c"; 
 
         let map;
         let marcadores = {};
         let dssToken = "";
 
-        function verificarClave(password) {
-            const hashIngresado = CryptoJS.SHA256(password).toString();
-            return hashIngresado === hashCorrecto;
+        function evaluarTecla(e) {
+            if (e.key === 'Enter') {
+                desencriptarYArrancar();
+            }
         }
 
         function desencriptarYArrancar() {
-            const pass = document.getElementById('access-password').value;
+            const txtPassword = document.getElementById('access-password').value;
+            
+            // Calculamos el hash de lo que escribió el usuario
+            const hashIngresado = CryptoJS.SHA256(txtPassword).toString();
 
-            if (verificarClave(pass)) {
-                // Ocultar login y mostrar mapa
+            // Verificamos si coincide de forma exacta con la clave autorizada
+            if (hashIngresado === hashCorrecto) {
+                document.getElementById('error-msg').style.display = 'none';
                 document.getElementById('login-container').style.display = 'none';
                 document.getElementById('app-container').style.display = 'block';
                 
-                // Inicializar mapa (Centrado por defecto en Buenos Aires, puedes cambiar coordenadas)
+                // Inicializar mapa centrado en zona general de Buenos Aires (puedes ajustar coordenadas)
                 map = L.map('map').setView([-34.6037, -58.3816], 11);
                 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
                     attribution: '© OpenStreetMap'
                 }).addTo(map);
 
-                // Iniciar flujo de datos con el DSS
+                // Arrancar comunicación con el servidor DSS
                 obtenerTokenDSS();
-                // Consultar cada 15 segundos
+                
+                // Actualizar automáticamente cada 15 segundos
                 setInterval(consultarGPSColectivos, 15000);
             } else {
+                // Si la clave falla, muestra el mensaje de error
                 document.getElementById('error-msg').style.display = 'block';
+                document.getElementById('access-password').value = "";
             }
         }
 
-        // Función para autenticarse contra la API del DSS de Dahua
+        // Conexión inicial al DSS para pedir permiso (Token)
         async function obtenerTokenDSS() {
+            if(DSS_CONFIG.ip === "TU_IP_PUBLICA_AQUI") {
+                document.getElementById('api-status').innerText = "Falta configurar credenciales";
+                return;
+            }
+
             try {
-                const url = `http://${DSS_CONFIG.ip}:${DSS_CONFIG.puerto}/artemis/api/v1/auth/login`; // Endpoint estándar DSS
+                const url = `http://${DSS_CONFIG.ip}:${DSS_CONFIG.puerto}/artemis/api/v1/auth/login`;
                 
-                // Nota: Dependiendo de tu versión de DSS, Dahua requiere firmar las peticiones o usar HTTPS/MD5. 
-                // Esta es una estructura base de login HTTP.
                 const response = await fetch(url, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                         userName: DSS_CONFIG.usuario,
-                        password: CryptoJS.MD5(DSS_CONFIG.clave).toString() // DSS suele pedir clave en MD5
+                        password: CryptoJS.MD5(DSS_CONFIG.clave).toString() // Dahua suele pedir la clave en MD5
                     })
                 });
 
                 const data = await response.json();
                 if(data && data.data && data.data.token) {
                     dssToken = data.data.token;
-                    document.getElementById('api-status').innerText = "Conectado a DSS";
+                    document.getElementById('api-status').innerText = "Conectado a DSS con éxito";
                     consultarGPSColectivos();
+                } else {
+                    document.getElementById('api-status').innerText = "Error: Credenciales DSS rechazadas";
                 }
             } catch (error) {
-                console.error("Error de autenticación DSS:", error);
-                document.getElementById('api-status').innerText = "Error de Conexión IP/Puerto";
+                console.error("Error:", error);
+                document.getElementById('api-status').innerText = "Error: No se pudo conectar al IP/Puerto";
             }
         }
 
-        // Función para consultar las coordenadas de la flota
+        // Consulta de posiciones GPS de la flota
         async function consultarGPSColectivos() {
             if (!dssToken) return;
 
             try {
-                // Endpoint para obtener estados de GPS en DSS Pro/Express
                 const url = `http://${DSS_CONFIG.ip}:${DSS_CONFIG.puerto}/artemis/api/pms/v1/gps/states`;
                 
                 const response = await fetch(url, {
@@ -140,10 +154,7 @@
                         'Content-Type': 'application/json',
                         'Authorization': `Bearer ${dssToken}`
                     },
-                    body: JSON.stringify({
-                        // Enviamos la lista de internos que creamos (5601 al 5658)
-                        deviceCodes: flotaColectivos 
-                    })
+                    body: JSON.stringify({ deviceCodes: flotaColectivos })
                 });
 
                 const resData = await response.json();
@@ -152,19 +163,14 @@
                     const ahora = new Date();
                     document.getElementById('last-update').innerText = `Último reporte: ${ahora.toLocaleTimeString()}`;
                     
-                    // Procesar las coordenadas devueltas por el DSS
                     resData.data.forEach(gpsData => {
                         const { deviceCode, latitude, longitude, speed } = gpsData;
                         
-                        // Validar que el interno esté en nuestro rango y tenga coordenadas válidas
                         if (flotaColectivos.includes(deviceCode) && latitude && longitude) {
-                            
                             if (marcadores[deviceCode]) {
-                                // Actualizar posición si ya existe en el mapa
                                 marcadores[deviceCode].setLatLng([latitude, longitude]);
                                 marcadores[deviceCode].setPopupContent(`<b>Colectivo: ${deviceCode}</b><br>Velocidad: ${speed} km/h`);
                             } else {
-                                // Crear nuevo marcador si aparece por primera vez
                                 marcadores[deviceCode] = L.marker([latitude, longitude]).addTo(map)
                                     .bindPopup(`<b>Colectivo: ${deviceCode}</b><br>Velocidad: ${speed} km/h`);
                             }
@@ -172,9 +178,8 @@
                     });
                 }
             } catch (error) {
-                console.error("Error al obtener GPS:", error);
-                // Si el token expira, intentamos loguear de nuevo
-                obtenerTokenDSS();
+                console.error("Error GPS:", error);
+                obtenerTokenDSS(); // Reintentar login si falla la sesión
             }
         }
     </script>
