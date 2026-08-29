@@ -1,121 +1,107 @@
-<!DOCTYPE html>
-<html lang="es">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Monitoreo de Conexión - Flota</title>
-    <style>
-        body { margin: 0; padding: 20px; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #f4f6f9; color: #333; }
-        #login-container { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 80vh; }
-        .login-box { background: white; padding: 30px; border-radius: 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); text-align: center; width: 300px; }
-        input[type="password"] { width: 90%; padding: 10px; margin: 15px 0; border: 1px solid #ccc; border-radius: 4px; font-size: 16px; }
-        button { background: #007bff; color: white; border: none; padding: 10px 20px; border-radius: 4px; cursor: pointer; font-size: 16px; width: 96%; }
-        button:hover { background: #0056b3; }
-        #error-msg { color: red; font-size: 14px; margin-top: 10px; display: none; }
+import requests
+import json
+import time
+import base64
+from datetime import datetime
+
+# =========================================================================
+# CONFIGURACIÓN DEL SISTEMA (Rellena estos campos con tus datos reales)
+# =========================================================================
+DSS_IP = "ctp.brown.gob.ar"      # Ej: "192.168.1.50"
+DSS_PUERTO = "9000"              # Ej: "8314" o "80"
+DSS_USUARIO = "tecnicos514"
+DSS_CLAVE = "manTlinea514"
+
+GITHUB_USUARIO = "warchild2639"
+GITHUB_REPOSITORIO = "monitoreo514"
+GITHUB_TOKEN = "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" # Tu token largo ghp_...
+# =========================================================================
+
+MIN_BUS = 5601
+MAX_BUS = 5658
+flota_completa = [str(i) for i in range(MIN_BUS, MAX_BUS + 1)]
+
+def obtener_token_dss():
+    url = f"http://{DSS_IP}:{DSS_PUERTO}/artemis/api/v1/auth/login"
+    try:
+        response = requests.post(url, json={"userName": DSS_USUARIO, "password": DSS_CLAVE}, timeout=10)
+        data = response.json()
+        return data.get("data", {}).get("token", None)
+    except Exception as e:
+        print(f"[{datetime.now().strftime('%H:%M:%S')}] Error conectando al DSS local: {e}")
+        return None
+
+def consultar_colectivos_online(dss_token):
+    url = f"http://{DSS_IP}:{DSS_PUERTO}/artemis/api/pms/v1/gps/states"
+    headers = {"Authorization": f"Bearer {dss_token}", "Content-Type": "application/json"}
+    
+    payload = {
+        "deviceCodes": flota_completa,
+        "deviceIds": flota_completa,
+        "deviceNames": flota_completa
+    }
+    
+    try:
+        response = requests.post(url, json=payload, headers=headers, timeout=10)
+        res_data = response.json()
         
-        #app-container { display: none; max-width: 1200px; margin: 0 auto; }
-        .header-panel { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; }
-        .header-panel h2 { margin: 0; font-size: 22px; color: #222; }
-        .status-indicators p { margin: 5px 0; font-size: 14px; text-align: right; }
-        #api-status { font-weight: bold; color: #28a745; }
-        
-        .grid-colectivos { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 12px; }
-        .bus-card { background: white; border-radius: 6px; padding: 15px 10px; text-align: center; box-shadow: 0 2px 5px rgba(0,0,0,0.05); border-left: 5px solid #ccc; }
-        .bus-card.online { border-left-color: #28a745; background: #f1f9f3; }
-        .bus-card.offline { border-left-color: #dc3545; background: #fff5f5; }
-        .bus-number { font-size: 18px; font-weight: bold; margin-bottom: 5px; }
-        .bus-status { font-size: 12px; font-weight: 600; text-transform: uppercase; }
-    </style>
-</head>
-<body>
-
-    <div id="login-container">
-        <div class="login-box">
-            <h3>Monitoreo de Flota</h3>
-            <p>Ingrese la clave de acceso:</p>
-            <input type="password" id="access-password" placeholder="Contraseña" onkeypress="evaluarTecla(event)">
-            <button onclick="verificarYEntrar()">Ingresar</button>
-            <p id="error-msg">Clave incorrecta. Intente de nuevo.</p>
-        </div>
-    </div>
-
-    <div id="app-container">
-        <div class="header-panel">
-            <h2>Estado de Flota (5601 - 5658)</h2>
-            <div class="status-indicators">
-                <p>Sistema: <span id="api-status">Leyendo archivo de estados</span></p>
-                <p id="last-update">Último reporte: --:--:--</p>
-            </div>
-        </div>
-        <div class="grid-colectivos" id="flota-grid"></div>
-    </div>
-
-    <script>
-        const MIN_BUS = 5601;
-        const MAX_BUS = 5658;
-        const flotaColectivos = [];
-
-        function construirGrillaVisual() {
-            const grid = document.getElementById('flota-grid');
-            grid.innerHTML = "";
-            for (let i = MIN_BUS; i <= MAX_BUS; i++) {
-                const idBus = i.toString();
-                flotaColectivos.push(idBus);
-                const card = document.createElement('div');
-                card.className = 'bus-card offline';
-                card.id = `bus-${idBus}`;
-                card.innerHTML = `
-                    <div class="bus-number">${idBus}</div>
-                    <div class="bus-status" id="status-${idBus}">Desconectado</div>
-                `;
-                grid.appendChild(card);
-            }
-        }
-
-        function evaluarTecla(e) { if (e.key === 'Enter') { verificarYEntrar(); } }
-
-        function verificarYEntrar() {
-            const txtPassword = document.getElementById('access-password').value;
-            if (txtPassword === "123456aA") {
-                document.getElementById('login-container').style.display = 'none';
-                document.getElementById('app-container').style.display = 'block';
-                construirGrillaVisual();
-                leerEstadosDesdeGithub();
-                setInterval(leerEstadosDesdeGithub, 15000); // Revisa actualizaciones cada 15 segundos
-            } else {
-                document.getElementById('error-msg').style.display = 'block';
-                document.getElementById('access-password').value = "";
-            }
-        }
-
-        async function leerEstadosDesdeGithub() {
-            try {
-                // Lee el JSON directamente desde tu propio repositorio de Github sin problemas de puertos
-                const respuesta = await fetch('estados.json?t=' + new Date().getTime());
-                const datos = await respuesta.json();
+        conectados = []
+        if res_data and "data" in res_data:
+            for gps_data in res_data["data"]:
+                d_code = gps_data.get("deviceCode")
+                d_id = gps_data.get("deviceId")
+                d_name = gps_data.get("deviceName")
                 
-                document.getElementById('last-update').innerText = `Último reporte: ${datos.actualizacion}`;
+                for identificador in [d_code, d_id, d_name]:
+                    if identificador and str(identificador) in flota_completa:
+                        if str(identificador) not in conectados:
+                            conectados.append(str(identificador))
+                            break
+        return conectados
+    except Exception as e:
+        print(f"Error al consultar internos en DSS: {e}")
+        return []
 
-                // Resetear todos a offline
-                flotaColectivos.forEach(idBus => {
-                    const card = document.getElementById(`bus-${idBus}`);
-                    const statusTxt = document.getElementById(`status-${idBus}`);
-                    if(card) { card.className = 'bus-card offline'; statusTxt.innerText = "Desconectado"; }
-                });
+def subir_a_github(conectados_list):
+    url = f"https://github.com{GITHUB_USUARIO}/{GITHUB_REPOSITORIO}/contents/estados.json"
+    headers = {"Authorization": f"token {GITHUB_TOKEN}", "Accept": "application/vnd.github.v3+json"}
+    
+    contenido_json = {
+        "actualizacion": datetime.now().strftime("%H:%M:%S"),
+        "conectados": conectados_list
+    }
+    
+    json_texto = json.dumps(contenido_json, indent=2)
+    contenido_base64 = base64.b64encode(json_texto.encode('utf-8')).decode('utf-8')
+    
+    sha = None
+    try:
+        get_res = requests.get(url, headers=headers, timeout=5)
+        if get_res.status_code == 200:
+            sha = get_res.json().get("sha")
+    except:
+        pass
 
-                // Marcar como Online los que el archivo JSON diga que están activos
-                datos.conectados.forEach(idBus => {
-                    const card = document.getElementById(`bus-${idBus}`);
-                    const statusTxt = document.getElementById(`status-${idBus}`);
-                    if (card) {
-                        card.className = 'bus-card online';
-                        statusTxt.innerText = "En línea";
-                    }
-                });
-            } catch (error) {
-                console.error("Esperando que se cree el archivo estados.json...", error);
-            }
-        }
-    </script>
-</body>
-</html>
+    payload = {"message": "Actualizacion automatica de flota", "content": contenido_base64}
+    if sha:
+        payload["sha"] = sha
+
+    try:
+        res = requests.put(url, json=payload, headers=headers, timeout=10)
+        
+        # CAMBIO CLAVE: Validación simple sin usar estructuras conflictivas
+        if res.status_code == 200 or res.status_code == 201:
+            print(f"[{datetime.now().strftime('%H:%M:%S')}] Flota actualizada en GitHub. Online: {len(conectados_list)}")
+        else:
+            print(f"Error al subir a GitHub: {res.text}")
+    except Exception as e:
+        print(f"Error de red al subir a GitHub: {e}")
+
+# Bucle infinito: ejecuta la acción cada 30 segundos
+print("Arrancando puente de monitoreo hacia GitHub...")
+while True:
+    token = obtener_token_dss()
+    if token:
+        lista_online = consultar_colectivos_online(token)
+        subir_a_github(lista_online)
+    time.sleep(30)
