@@ -4,7 +4,6 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Monitoreo de Conexión - Flota</title>
-    <script src="https://cloudflare.com"></script>
     <style>
         body { margin: 0; padding: 20px; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #f4f6f9; color: #333; }
         #login-container { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 80vh; }
@@ -18,21 +17,18 @@
         .header-panel { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; }
         .header-panel h2 { margin: 0; font-size: 22px; color: #222; }
         .status-indicators p { margin: 5px 0; font-size: 14px; text-align: right; }
-        #api-status { font-weight: bold; color: #dc3545; }
-        #debug-log { font-size: 11px; color: #666; background: #eee; padding: 6px; border-radius: 4px; margin-top: 5px; display: block; text-align: right; max-width: 400px; word-break: break-all;}
+        #api-status { font-weight: bold; color: #28a745; }
         
         .grid-colectivos { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 12px; }
-        .bus-card { background: white; border-radius: 6px; padding: 15px 10px; text-align: center; box-shadow: 0 2px 5px rgba(0,0,0,0.05); border-left: 5px solid #ccc; transition: transform 0.2s; }
+        .bus-card { background: white; border-radius: 6px; padding: 15px 10px; text-align: center; box-shadow: 0 2px 5px rgba(0,0,0,0.05); border-left: 5px solid #ccc; }
         .bus-card.online { border-left-color: #28a745; background: #f1f9f3; }
         .bus-card.offline { border-left-color: #dc3545; background: #fff5f5; }
         .bus-number { font-size: 18px; font-weight: bold; margin-bottom: 5px; }
         .bus-status { font-size: 12px; font-weight: 600; text-transform: uppercase; }
-        .bus-speed { font-size: 11px; color: #666; margin-top: 4px; }
     </style>
 </head>
 <body>
 
-    <!-- PANTALLA DE LOGUEO -->
     <div id="login-container">
         <div class="login-box">
             <h3>Monitoreo de Flota</h3>
@@ -43,36 +39,21 @@
         </div>
     </div>
 
-    <!-- CONTENEDOR PRINCIPAL -->
     <div id="app-container">
         <div class="header-panel">
             <h2>Estado de Flota (5601 - 5658)</h2>
             <div class="status-indicators">
-                <p>Servidor: <span id="api-status">Probando rutas de conexión...</span></p>
-                <div id="debug-log">Log: Esperando inicio...</div>
-                <p id="last-update" style="margin-top:5px;">Último reporte: --:--:--</p>
+                <p>Sistema: <span id="api-status">Leyendo archivo de estados</span></p>
+                <p id="last-update">Último reporte: --:--:--</p>
             </div>
         </div>
-
         <div class="grid-colectivos" id="flota-grid"></div>
     </div>
-    <script>
-        // ==========================================
-        // CONFIGURACIÓN INTERNA (Rellena estos campos)
-        // ==========================================
-        const DSS_CONFIG = {
-            ip: "ctp.brown.gob.ar",
-            puerto: "9000",
-            usuario: "tecnicos514",
-            clave: "manTlinea514"
-        };
 
-        // Cambiamos a un proxy alternativo ultra estable basado en allorigins
-        const PROXY_CORS = "https://allorigins.win";
+    <script>
         const MIN_BUS = 5601;
         const MAX_BUS = 5658;
         const flotaColectivos = [];
-        let dssToken = "";
 
         function construirGrillaVisual() {
             const grid = document.getElementById('flota-grid');
@@ -86,120 +67,55 @@
                 card.innerHTML = `
                     <div class="bus-number">${idBus}</div>
                     <div class="bus-status" id="status-${idBus}">Desconectado</div>
-                    <div class="bus-speed" id="speed-${idBus}">-- km/h</div>
                 `;
                 grid.appendChild(card);
             }
         }
 
-        function evaluarTecla(e) {
-            if (e.key === 'Enter') { verificarYEntrar(); }
-        }
+        function evaluarTecla(e) { if (e.key === 'Enter') { verificarYEntrar(); } }
 
         function verificarYEntrar() {
             const txtPassword = document.getElementById('access-password').value;
             if (txtPassword === "123456aA") {
-                document.getElementById('error-msg').style.display = 'none';
                 document.getElementById('login-container').style.display = 'none';
                 document.getElementById('app-container').style.display = 'block';
                 construirGrillaVisual();
-                obtenerTokenDSS();
-                setInterval(consultarEstadosDSS, 20000);
+                leerEstadosDesdeGithub();
+                setInterval(leerEstadosDesdeGithub, 15000); // Revisa actualizaciones cada 15 segundos
             } else {
                 document.getElementById('error-msg').style.display = 'block';
                 document.getElementById('access-password').value = "";
             }
         }
 
-        async function obtenerTokenDSS() {
-            if(DSS_CONFIG.ip === "REEMPLAZA_CON_TU_IP") {
-                document.getElementById('api-status').innerText = "Falta configurar credenciales";
-                return;
-            }
-            
-            const log = document.getElementById('debug-log');
-            const targetUrl = `http://${DSS_CONFIG.ip}:${DSS_CONFIG.puerto}/artemis/api/v1/auth/login`;
-            log.innerText = `Conectando a: ${targetUrl} via Proxy...`;
-
+        async function leerEstadosDesdeGithub() {
             try {
-                const passwordEncriptado = CryptoJS.MD5(DSS_CONFIG.clave).toString();
-                const urlCompleta = PROXY_CORS + encodeURIComponent(targetUrl);
+                // Lee el JSON directamente desde tu propio repositorio de Github sin problemas de puertos
+                const respuesta = await fetch('estados.json?t=' + new Date().getTime());
+                const datos = await respuesta.json();
+                
+                document.getElementById('last-update').innerText = `Último reporte: ${datos.actualizacion}`;
 
-                // Configuración de fetch adaptada al nuevo Proxy estructural
-                const response = await fetch(urlCompleta);
-                if (!response.ok) throw new Error(`HTTP Error Proxy: ${response.status}`);
-                
-                const wrapperData = await response.json();
-                
-                // El proxy devuelve la respuesta real dentro de una propiedad 'contents'
-                if (!wrapperData.contents) {
-                    throw new Error("El proxy no devolvió contenido utilizable.");
-                }
-
-                const data = JSON.parse(wrapperData.contents);
-                
-                if(data && data.data && data.data.token) {
-                    dssToken = data.data.token;
-                    document.getElementById('api-status').innerText = "Conectado a DSS";
-                    document.getElementById('api-status').style.color = "#28a745";
-                    log.innerText = "Token obtenido con éxito.";
-                    consultarEstadosDSS();
-                } else {
-                    document.getElementById('api-status').innerText = "Credenciales incorrectas";
-                    log.innerText = `Respuesta del DSS: ${JSON.stringify(data)}`;
-                }
-            } catch (error) {
-                console.error(error);
-                document.getElementById('api-status').innerText = "Error de Red / Puerto cerrado";
-                log.innerText = `Detalle del fallo: ${error.message}. Verifica que el puerto ${DSS_CONFIG.puerto} esté abierto en tu router externo.`;
-            }
-        }
-
-        async function consultarEstadosDSS() {
-            if (!dssToken) return;
-            try {
-                const targetUrl = `http://${DSS_CONFIG.ip}:${DSS_CONFIG.puerto}/artemis/api/pms/v1/gps/states`;
-                const urlCompleta = PROXY_CORS + encodeURIComponent(targetUrl);
-
-                // Nota: Para APIs complejas encapsuladas en este proxy, se procesa mediante peticiones internas.
-                const response = await fetch(urlCompleta);
-                const wrapperData = await response.json();
-                if(!wrapperData.contents) return;
-                
-                const resData = JSON.parse(wrapperData.contents);
-                
+                // Resetear todos a offline
                 flotaColectivos.forEach(idBus => {
                     const card = document.getElementById(`bus-${idBus}`);
                     const statusTxt = document.getElementById(`status-${idBus}`);
-                    if(card) {
-                        card.className = 'bus-card offline';
-                        statusTxt.innerText = "Desconectado";
-                    }
+                    if(card) { card.className = 'bus-card offline'; statusTxt.innerText = "Desconectado"; }
                 });
 
-                if (resData && resData.data) {
-                    const ahora = new Date();
-                    document.getElementById('last-update').innerText = `Último reporte: ${ahora.toLocaleTimeString()}`;
-                    resData.data.forEach(gpsData => {
-                        const { deviceCode, speed } = gpsData;
-                        if (flotaColectivos.includes(deviceCode)) {
-                            const card = document.getElementById(`bus-${deviceCode}`);
-                            const statusTxt = document.getElementById(`status-${deviceCode}`);
-                            const speedTxt = document.getElementById(`speed-${deviceCode}`);
-                            if (card) {
-                                card.className = 'bus-card online';
-                                statusTxt.innerText = "En línea";
-                                speedTxt.innerText = `${speed || 0} km/h`;
-                            }
-                        }
-                    });
-                }
+                // Marcar como Online los que el archivo JSON diga que están activos
+                datos.conectados.forEach(idBus => {
+                    const card = document.getElementById(`bus-${idBus}`);
+                    const statusTxt = document.getElementById(`status-${idBus}`);
+                    if (card) {
+                        card.className = 'bus-card online';
+                        statusTxt.innerText = "En línea";
+                    }
+                });
             } catch (error) {
-                console.error(error);
-                obtenerTokenDSS();
+                console.error("Esperando que se cree el archivo estados.json...", error);
             }
         }
     </script>
 </body>
 </html>
-
